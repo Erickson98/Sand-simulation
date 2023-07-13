@@ -29,12 +29,13 @@ public class Shovel : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        for (int i = 0; i < collectors.Count; i++)
+        for (int i = 0; i < edgePoints.Length; i++)
         {
             RaycastHit hit;
-            if (Physics.Raycast(collectors[i].point.position, Vector3.up, out hit, 1, groundMask))
+            if (Physics.Raycast(edgePoints[i].position, Vector3.up, out hit, 1, groundMask))
             {
-                Debug.DrawLine(collectors[i].point.position, Vector3.up * hit.distance, Color.red);
+                Debug.Log(hit.distance);
+                Debug.DrawLine(edgePoints[i].position, Vector3.up * hit.distance, Color.red);
                 if (hit.distance > sandAmount[i])
                 {
                     sandAmount[i] = hit.distance;
