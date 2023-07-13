@@ -43,5 +43,10 @@ public class Shovel : MonoBehaviour
                 Debug.DrawRay(s.point.position, Vector3.up, Color.green);
             }
         }
+        for (int i = 0; i < collectors.Count; i++)
+        {
+            var verts = new List<Vector3>();
+            var mesh = new Mesh();
+        }
     }
 }
