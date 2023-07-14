@@ -120,16 +120,18 @@ public class Shovel : MonoBehaviour
             // edgePoints[i] = edgRoot.GetChild(i);
             var c = new Collector();
             c.point = edgRoot.GetChild(i);
-            c.amount = 0f;
+            c.amount = Vector3.zero;
             c.IsUnderground = false;
             collectors.Add(c);
         }
+        var mesh = new Mesh();
+        sandMesh.mesh = mesh;
     }
 
     void Update()
     {
 
-
+        // blucle para comprobar si los puntos estan bajo tierra
         for (int i = 0; i < collectors.Count; i++)
         {
             var s = collectors[i];
@@ -139,9 +141,9 @@ public class Shovel : MonoBehaviour
                 s.IsUnderground = true;
 
                 Debug.DrawRay(s.point.position, Vector3.up * hit.distance, Color.red);
-                if (hit.distance > s.amount)
+                if (hit.distance > s.amount.y)
                 {
-                    s.amount = hit.distance;
+                    s.amount.y = hit.distance;
                 }
 
             }
@@ -150,11 +152,13 @@ public class Shovel : MonoBehaviour
                 s.IsUnderground = false;
                 Debug.DrawRay(collectors[i].point.position, Vector3.up, Color.green);
             }
+            collectors[i] = s;
         }
 
         var verts = new List<Vector3>();
         var tris = new List<int>();
 
+        // Este bucle asigna los vertices con su profundidad para poderlo utilizar en la mesh
         for (int i = 0; i < collectors.Count; i++)
         {
             var s = collectors[i];
@@ -162,11 +166,14 @@ public class Shovel : MonoBehaviour
             if (s.IsUnderground == true)
             {
                 verts.Add(s.point.position);
+                tris.Add(tris.Count - 1);
                 verts.Add(s.point.position + s.amount);
             }
         }
+        Debug.Log(verts.Count);
+        // var mesh = new Mesh();
+        var mesh = sandMesh.mesh;
 
-        var mesh = new Mesh();
         mesh.vertices = verts.ToArray();
 
         // mesh.triangles = tris.ToArray();
@@ -178,6 +185,6 @@ public class Shovel : MonoBehaviour
         mesh.RecalculateTangents();
 
 
-        sandMesh.sharedMesh = mesh;
+        sandMesh.mesh = mesh;
     }
 }
