@@ -4,6 +4,6 @@ using UnityEngine;
 public struct Collector
 {
     public Transform point;
-    public Vector3 amount;
+    public float amount;
     public bool IsUnderground;
 }
