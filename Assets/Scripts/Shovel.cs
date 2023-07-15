@@ -97,8 +97,8 @@
 // }
 
 
-
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 public class Shovel : MonoBehaviour
@@ -118,8 +118,11 @@ public class Shovel : MonoBehaviour
         for (int i = 0; i < edgRoot.transform.childCount; i++)
         {
             // edgePoints[i] = edgRoot.GetChild(i);
+            var child = edgRoot.GetChild(i);
+            Debug.Log(child.position);
+            if (child.gameObject.activeSelf == false) continue;
             var c = new Collector();
-            c.point = edgRoot.GetChild(i);
+            c.point = child;
             c.amount = Vector3.zero;
             c.IsUnderground = false;
             collectors.Add(c);
@@ -140,7 +143,7 @@ public class Shovel : MonoBehaviour
             {
                 s.IsUnderground = true;
 
-                Debug.DrawRay(s.point.position, Vector3.up * hit.distance, Color.red);
+                // Debug.DrawRay(s.point.position, Vector3.up * hit.distance, Color.red);
                 if (hit.distance > s.amount.y)
                 {
                     s.amount.y = hit.distance;
@@ -150,7 +153,7 @@ public class Shovel : MonoBehaviour
             else
             {
                 s.IsUnderground = false;
-                Debug.DrawRay(collectors[i].point.position, Vector3.up, Color.green);
+                // Debug.DrawRay(collectors[i].point.position, Vector3.up, Color.green);
             }
             collectors[i] = s;
         }
@@ -158,6 +161,7 @@ public class Shovel : MonoBehaviour
         var verts = new List<Vector3>();
         var tris = new List<int>();
 
+        int triCount = 0;
         // Este bucle asigna los vertices con su profundidad para poderlo utilizar en la mesh
         for (int i = 0; i < collectors.Count; i++)
         {
@@ -165,15 +169,48 @@ public class Shovel : MonoBehaviour
 
             if (s.IsUnderground == true)
             {
-                verts.Add(s.point.position);
-                tris.Add(tris.Count - 1);
-                verts.Add(s.point.position + s.amount);
+                var pos2 = transform.InverseTransformPoint(s.point.position);
+                verts.Add(pos2);
+                tris.Add(triCount++);
+
+                var pos = transform.InverseTransformPoint(s.point.position + s.amount);
+                verts.Add(pos);
+                tris.Add(triCount++);
+
+                // tris.Add(tris.Count - 1);
+                bool gotPair = false;
+                for (i++; i < collectors.Count; ++i)
+                {
+                    var s2 = collectors[i];
+                    if (s2.IsUnderground == true)
+                    {
+                        // tris.Add(tris.Count - 1);
+                        var pos3 = transform.InverseTransformPoint(s2.point.position + s2.amount);
+                        verts.Add(pos3);
+                        tris.Add(triCount++);
+
+                        var pos4 = transform.InverseTransformPoint(s2.point.position);
+                        verts.Add(pos4);
+                        tris.Add(triCount++);
+
+                        Debug.DrawRay(s.point.position, s.point.position + s.amount, i % 2 == 0 ? Color.red : Color.green);
+                        Debug.DrawRay(s2.point.position, Vector3.up, i % 2 == 0 ? Color.red : Color.green);
+                        // tris.Add(triCount++);
+                        gotPair = true;
+
+                        break;
+                    }
+                }
+                i--;
+                if (gotPair == false)
+                {
+                    // continue;
+                }
             }
         }
-        Debug.Log(verts.Count);
         // var mesh = new Mesh();
         var mesh = sandMesh.mesh;
-
+        mesh.Clear();
         mesh.vertices = verts.ToArray();
 
         // mesh.triangles = tris.ToArray();
