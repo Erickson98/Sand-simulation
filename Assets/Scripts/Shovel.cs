@@ -110,7 +110,7 @@ public class Shovel : MonoBehaviour
     public LayerMask groundMask;
     public MeshFilter sandMesh;
     List<Collector> collectors = new List<Collector>();
-
+    Vector3 sandMeshOffset;
     Collider shovelCollider;
     void Start()
     {
@@ -131,6 +131,8 @@ public class Shovel : MonoBehaviour
         }
         shovelCollider = GetComponent<Collider>();
         var mesh = new Mesh();
+        mesh.MarkDynamic();
+        sandMeshOffset = sandMesh.transform.localPosition;
         sandMesh.mesh = mesh;
     }
     void FixedUpdate()
@@ -141,10 +143,8 @@ public class Shovel : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.C))
         {
-            var go = Instantiate(sandMesh.gameObject, null, true);
-            Transform ssd = go.gameObject.GetComponent<Transform>();
-            ssd.position = transform.position;
-            Debug.Log(ssd.position);
+            var go = Instantiate(sandMesh.gameObject, sandMesh.transform.position, sandMesh.transform.rotation);
+
             var mc = go.AddComponent<MeshCollider>();
             mc.convex = true;
             Physics.IgnoreCollision(mc, shovelCollider);
@@ -191,8 +191,12 @@ public class Shovel : MonoBehaviour
 
         var verts = new List<Vector3>();
         var tris = new List<int>();
+        var uv = new List<Vector2>();
 
+        var topVert = new List<Vector3>();
+        var bottomVerts = new List<Vector3>();
         int triCount = 0;
+        var center = Vector3.zero;
         // Este bucle asigna los vertices con su profundidad para poderlo utilizar en la mesh
         for (int i = 0; i < collectors.Count; i++)
         {
@@ -200,13 +204,19 @@ public class Shovel : MonoBehaviour
 
             if (s.IsUnderground == true)
             {
-                var pos2 = transform.InverseTransformPoint(s.point.position);
+                center += collectors[i].point.position;
+                var pos2 = transform.InverseTransformPoint(s.point.position) - sandMeshOffset;
                 verts.Add(pos2);
+                bottomVerts.Add(pos2);
                 tris.Add(triCount++);
+                uv.Add(pos2);
 
-                var pos = transform.InverseTransformPoint(s.point.position + s.amount);
+                var pos = transform.InverseTransformPoint(s.point.position + s.amount) - sandMeshOffset;
                 verts.Add(pos);
+
+                topVert.Add(pos);
                 tris.Add(triCount++);
+                uv.Add(pos);
 
                 // tris.Add(tris.Count - 1);
                 bool gotPair = false;
@@ -216,13 +226,20 @@ public class Shovel : MonoBehaviour
                     if (s2.IsUnderground == true)
                     {
                         // tris.Add(tris.Count - 1);
-                        var pos3 = transform.InverseTransformPoint(s2.point.position + s2.amount);
+                        var pos3 = transform.InverseTransformPoint(s2.point.position + s2.amount) - sandMeshOffset;
                         verts.Add(pos3);
-                        tris.Add(triCount++);
+                        topVert.Add(pos3);
 
-                        var pos4 = transform.InverseTransformPoint(s2.point.position);
-                        verts.Add(pos4);
                         tris.Add(triCount++);
+                        uv.Add(pos3);
+
+                        var pos4 = transform.InverseTransformPoint(s2.point.position) - sandMeshOffset;
+                        verts.Add(pos4);
+                        bottomVerts.Add(pos4);
+
+                        tris.Add(triCount++);
+                        uv.Add(pos4);
+
 
                         Debug.DrawRay(s.point.position, s.point.position + s.amount, i % 2 == 0 ? Color.red : Color.green);
                         Debug.DrawRay(s2.point.position, Vector3.up, i % 2 == 0 ? Color.red : Color.green);
@@ -236,10 +253,16 @@ public class Shovel : MonoBehaviour
                 {
                     verts.RemoveAt(verts.Count - 1);
                     verts.RemoveAt(verts.Count - 1);
+                    topVert.RemoveAt(topVert.Count - 1);
+                    bottomVerts.RemoveAt(topVert.Count - 1);
+                    uv.RemoveAt(uv.Count - 1);
+                    uv.RemoveAt(uv.Count - 1);
                     // tris.RemoveAt(tris.Count - 1);
                     // tris.RemoveAt(tris.Count - 1);
                     tris.RemoveAt(tris.Count - 1);
                     tris.RemoveAt(tris.Count - 1);
+                    triCount--;
+                    triCount--;
                     // continue;
                 }
                 else
@@ -250,76 +273,90 @@ public class Shovel : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < collectors.Count; i++)
-        {
-            var s = collectors[i];
-
-            if (s.IsUnderground == true)
-            {
-                var pos2 = transform.InverseTransformPoint(s.point.position);
-                verts.Add(pos2);
-                tris.Add(triCount++);
-
-                var pos = transform.InverseTransformPoint(s.point.position + s.amount);
-                verts.Add(pos);
-                tris.Add(triCount++);
-
-                // tris.Add(tris.Count - 1);
-                bool gotPair = false;
-                for (i++; i < collectors.Count; ++i)
-                {
-                    var s2 = collectors[i];
-                    if (s2.IsUnderground == true)
-                    {
-                        // tris.Add(tris.Count - 1);
-                        var pos3 = transform.InverseTransformPoint(s2.point.position + s2.amount);
-                        verts.Add(pos3);
-                        tris.Add(triCount++);
-
-                        var pos4 = transform.InverseTransformPoint(s2.point.position);
-                        verts.Add(pos4);
-                        tris.Add(triCount++);
-
-                        Debug.DrawRay(s.point.position, s.point.position + s.amount, i % 2 == 0 ? Color.red : Color.green);
-                        Debug.DrawRay(s2.point.position, Vector3.up, i % 2 == 0 ? Color.red : Color.green);
-                        // tris.Add(triCount++);
-                        gotPair = true;
-
-                        break;
-                    }
-                }
-                if (gotPair == false)
-                {
-                    verts.RemoveAt(verts.Count - 1);
-                    verts.RemoveAt(verts.Count - 1);
-                    // tris.RemoveAt(tris.Count - 1);
-                    // tris.RemoveAt(tris.Count - 1);
-                    tris.RemoveAt(tris.Count - 1);
-                    tris.RemoveAt(tris.Count - 1);
-                    // continue;
-                }
-                else
-                {
-                    i--;
-
-                }
-            }
-        }
+        center = center / (float)collectors.Count;
+        sandMesh.transform.position = center;
+        sandMeshOffset = sandMesh.transform.localPosition;
 
         //top mesh
 
-        for (int i = 0; i < verts.Count; i++)
+        for (int i = 0; i < topVert.Count / 2; i += 2)
         {
             // if (i % 2 == 0) continue;
-            var v = transform.TransformPoint(verts[i + 1]);
-            // v = transform.TransformPoint(verts[i + 2]);
+            // var v1 = transform.TransformPoint(topVert[i]);
+
+            // var v2 = transform.TransformPoint(topVert[i + 1]);
+            // var v3 = transform.TransformPoint(topVert[topVert.Count - 1 - i - 1]);
+            // var v4 = transform.TransformPoint(topVert[topVert.Count - 1 - i]);
+
+            verts.Add(topVert[topVert.Count - 1 - i]);
+            uv.Add(verts[verts.Count - 1]);
+            verts.Add(topVert[topVert.Count - 1 - i - 1]);
+            uv.Add(verts[verts.Count - 1]);
+            verts.Add(topVert[i + 1]);
+            uv.Add(verts[verts.Count - 1]);
+            verts.Add(topVert[i]);
+            uv.Add(verts[verts.Count - 1]);
+
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+        }
+        //bottom mesh
+        for (int i = 0; i < bottomVerts.Count / 2; i += 2)
+        {
+            // // if (i % 2 == 0) continue;
+            // var v1 = transform.TransformPoint(topVert[i]);
+            // var v2 = transform.TransformPoint(topVert[i + 1]);
+            // var v3 = transform.TransformPoint(topVert[topVert.Count - 1 - i - 1]);
+            // var v4 = transform.TransformPoint(topVert[topVert.Count - 1 - i]);
+
+            verts.Add(bottomVerts[i]);
+            uv.Add(verts[verts.Count - 1]);
+
+            verts.Add(bottomVerts[i + 1]);
+            uv.Add(verts[verts.Count - 1]);
+
+            verts.Add(bottomVerts[bottomVerts.Count - 1 - i - 1]);
+            uv.Add(verts[verts.Count - 1]);
+
+            verts.Add(bottomVerts[bottomVerts.Count - 1 - i]);
+            uv.Add(verts[verts.Count - 1]);
+
+
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+        }
+
+        if (verts.Count > 0)
+        {
+            verts.Add(topVert[0]);
+            uv.Add(verts[verts.Count - 1]);
+
+            verts.Add(bottomVerts[0]);
+            uv.Add(verts[verts.Count - 1]);
+
+            verts.Add(bottomVerts[bottomVerts.Count - 1]);
+            uv.Add(verts[verts.Count - 1]);
+            verts.Add(topVert[topVert.Count - 1]);
+            uv.Add(verts[verts.Count - 1]);
+
+
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+            tris.Add(triCount++);
+            tris.Add(triCount++);
 
         }
+
+
         var mesh = new Mesh();
         // var mesh = sandMesh.mesh;
         mesh.Clear();
         mesh.vertices = verts.ToArray();
-
+        mesh.uv = uv.ToArray();
         // mesh.triangles = tris.ToArray();
         mesh.SetIndices(tris.ToArray(), MeshTopology.Quads, 0);
 
