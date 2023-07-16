@@ -110,6 +110,8 @@ public class Shovel : MonoBehaviour
     public LayerMask groundMask;
     public MeshFilter sandMesh;
     List<Collector> collectors = new List<Collector>();
+
+    Collider shovelCollider;
     void Start()
     {
         // edgePoints = new Transform[edgRoot.transform.childCount];
@@ -127,13 +129,41 @@ public class Shovel : MonoBehaviour
             c.IsUnderground = false;
             collectors.Add(c);
         }
+        shovelCollider = GetComponent<Collider>();
         var mesh = new Mesh();
         sandMesh.mesh = mesh;
     }
-
-    void Update()
+    void FixedUpdate()
     {
 
+    }
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            var go = Instantiate(sandMesh.gameObject, null, true);
+            Transform ssd = go.gameObject.GetComponent<Transform>();
+            ssd.position = transform.position;
+            Debug.Log(ssd.position);
+            var mc = go.AddComponent<MeshCollider>();
+            mc.convex = true;
+            Physics.IgnoreCollision(mc, shovelCollider);
+            var rg = go.AddComponent<Rigidbody>();
+            rg.AddForce(0, 7, 0, ForceMode.Impulse);
+            for (int i = 0; i < collectors.Count; i++)
+            {
+                var s = collectors[i];
+                s.IsUnderground = false;
+                s.amount = Vector3.zero;
+                collectors[i] = s;
+            }
+        }
+
+        UpdateSandMesh();
+    }
+
+    void UpdateSandMesh()
+    {
         // blucle para comprobar si los puntos estan bajo tierra
         for (int i = 0; i < collectors.Count; i++)
         {
@@ -152,7 +182,8 @@ public class Shovel : MonoBehaviour
             }
             else
             {
-                s.IsUnderground = false;
+                // s.amount.y = 0;
+                // s.IsUnderground = false;
                 // Debug.DrawRay(collectors[i].point.position, Vector3.up, Color.green);
             }
             collectors[i] = s;
@@ -201,15 +232,91 @@ public class Shovel : MonoBehaviour
                         break;
                     }
                 }
-                i--;
                 if (gotPair == false)
                 {
+                    verts.RemoveAt(verts.Count - 1);
+                    verts.RemoveAt(verts.Count - 1);
+                    // tris.RemoveAt(tris.Count - 1);
+                    // tris.RemoveAt(tris.Count - 1);
+                    tris.RemoveAt(tris.Count - 1);
+                    tris.RemoveAt(tris.Count - 1);
                     // continue;
+                }
+                else
+                {
+                    i--;
+
                 }
             }
         }
-        // var mesh = new Mesh();
-        var mesh = sandMesh.mesh;
+
+        for (int i = 0; i < collectors.Count; i++)
+        {
+            var s = collectors[i];
+
+            if (s.IsUnderground == true)
+            {
+                var pos2 = transform.InverseTransformPoint(s.point.position);
+                verts.Add(pos2);
+                tris.Add(triCount++);
+
+                var pos = transform.InverseTransformPoint(s.point.position + s.amount);
+                verts.Add(pos);
+                tris.Add(triCount++);
+
+                // tris.Add(tris.Count - 1);
+                bool gotPair = false;
+                for (i++; i < collectors.Count; ++i)
+                {
+                    var s2 = collectors[i];
+                    if (s2.IsUnderground == true)
+                    {
+                        // tris.Add(tris.Count - 1);
+                        var pos3 = transform.InverseTransformPoint(s2.point.position + s2.amount);
+                        verts.Add(pos3);
+                        tris.Add(triCount++);
+
+                        var pos4 = transform.InverseTransformPoint(s2.point.position);
+                        verts.Add(pos4);
+                        tris.Add(triCount++);
+
+                        Debug.DrawRay(s.point.position, s.point.position + s.amount, i % 2 == 0 ? Color.red : Color.green);
+                        Debug.DrawRay(s2.point.position, Vector3.up, i % 2 == 0 ? Color.red : Color.green);
+                        // tris.Add(triCount++);
+                        gotPair = true;
+
+                        break;
+                    }
+                }
+                if (gotPair == false)
+                {
+                    verts.RemoveAt(verts.Count - 1);
+                    verts.RemoveAt(verts.Count - 1);
+                    // tris.RemoveAt(tris.Count - 1);
+                    // tris.RemoveAt(tris.Count - 1);
+                    tris.RemoveAt(tris.Count - 1);
+                    tris.RemoveAt(tris.Count - 1);
+                    // continue;
+                }
+                else
+                {
+                    i--;
+
+                }
+            }
+        }
+
+        //top mesh
+
+        for (int i = 0; i < verts.Count; i++)
+        {
+            // if (i % 2 == 0) continue;
+            var v = transform.TransformPoint(verts[i + 1]);
+            // v = transform.TransformPoint(verts[i + 2]);
+
+        }
+        var mesh = new Mesh();
+        // var mesh = sandMesh.mesh;
         mesh.Clear();
         mesh.vertices = verts.ToArray();
 
