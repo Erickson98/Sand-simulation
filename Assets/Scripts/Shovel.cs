@@ -100,7 +100,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-
+//bottomVerts2 check
 public class Shovel : MonoBehaviour
 {
     public Transform edgRoot;
@@ -109,9 +109,26 @@ public class Shovel : MonoBehaviour
     // float[] sandAmount;
     public LayerMask groundMask;
     public MeshFilter sandMesh;
+
+    [Header("Settings")]
+    [Tooltip("Max angle that shovel can be pushed underground")]
+    // public float angleThreshold = 2f;
+    public float dotThreshold = 0.1f;
+    public float errorTreshold = 1f;
+    public float moveThreshold = 0.1f;
+
+    public MeshFilter groundMesh;
+    Collider groundCollider;
+
+    public bool blockShovelMove = false;
+    Vector3 shovelPrevPos;
+
+    public ParticleSystem fallingSandPC;
+
     List<Collector> collectors = new List<Collector>();
     Vector3 sandMeshOffset;
     Collider shovelCollider;
+    Collider sandCollider;
     void Start()
     {
         // edgePoints = new Transform[edgRoot.transform.childCount];
@@ -134,10 +151,53 @@ public class Shovel : MonoBehaviour
         mesh.MarkDynamic();
         sandMeshOffset = sandMesh.transform.localPosition;
         sandMesh.mesh = mesh;
-    }
-    void FixedUpdate()
-    {
+        shovelPrevPos = transform.position;
 
+        // groundCollider = groundMesh.GetComponent<Collider>();
+        sandCollider = sandMesh.GetComponent<Collider>();
+    }
+    void LateUpdate()
+    {
+        var forward = -transform.forward;
+        var sd = Vector3.Dot(forward, (transform.position - shovelPrevPos).normalized);
+        if (sd > 0)
+        {
+
+        }
+
+        float totalError = 0;
+        for (int i = 0; i < collectors.Count; i++)
+        {
+            var p = collectors[i];
+
+            if (p.IsUnderground == false) continue;
+            var dir = (p.prevPos - p.point.position).normalized;
+            // var dot = Vector3.Dot(forward, dir);
+            // var sangle = Vector3.SignedAngle(forward, dir, forward);
+            var dot = Vector3.Dot(forward, dir);
+            if (dot > 1 - dotThreshold || dot < -1 - dotThreshold)
+            {
+                totalError -= Mathf.Abs(dot);
+            }
+            else
+            {
+                totalError += Mathf.Abs(dot);
+            }
+
+            if (totalError > errorTreshold)
+            {
+                if (blockShovelMove)
+                {
+
+                    transform.position = shovelPrevPos;
+                }
+
+            }
+            shovelPrevPos = transform.position;
+
+            if (Vector3.Distance(p.prevPos, p.point.position) > moveThreshold) p.prevPos = p.point.position;
+            collectors[i] = p;
+        }
     }
     void Update()
     {
@@ -155,11 +215,42 @@ public class Shovel : MonoBehaviour
                 var s = collectors[i];
                 s.IsUnderground = false;
                 s.amount = Vector3.zero;
+                s.hasSand = false;
                 collectors[i] = s;
             }
         }
 
         UpdateSandMesh();
+        if (sandCollider == null) return;
+        var verts = groundMesh.mesh.vertices;
+        for (int i = 0; i < verts.Length; i++)
+        {
+            var p = verts[i];
+            var groundRay = new Ray(p, Vector3.down);
+
+            RaycastHit hit;
+            if (shovelCollider.Raycast(groundRay, out hit, 99))
+            {
+                verts[i] = hit.point;
+            }
+
+        }
+
+        groundMesh.mesh.vertices = verts;
+
+
+    }
+    int sandIndex = 0;
+    void FallingSand()
+    {
+        var verts = sandMesh.mesh.vertices;
+        // for (int i = 0; i < verts.Length; i++)
+        if (verts.Length == 0) return;
+        var pos = sandMesh.transform.TransformPoint(verts[Random.Range(0, verts.Length)]);
+        var emits = new ParticleSystem.EmitParams();
+        emits.position = pos;
+        fallingSandPC.Emit(emits, 3);
+        sandIndex = sandIndex++ % verts.Length;
     }
 
     void UpdateSandMesh()
@@ -177,13 +268,14 @@ public class Shovel : MonoBehaviour
                 if (hit.distance > s.amount.y)
                 {
                     s.amount.y = hit.distance;
+                    s.hasSand = true;
                 }
 
             }
             else
             {
                 // s.amount.y = 0;
-                // s.IsUnderground = false;
+                s.IsUnderground = false;
                 // Debug.DrawRay(collectors[i].point.position, Vector3.up, Color.green);
             }
             collectors[i] = s;
@@ -196,15 +288,15 @@ public class Shovel : MonoBehaviour
         var topVert = new List<Vector3>();
         var bottomVerts = new List<Vector3>();
         int triCount = 0;
-        var center = Vector3.zero;
+        var bottomVerts2 = Vector3.zero;
         // Este bucle asigna los vertices con su profundidad para poderlo utilizar en la mesh
         for (int i = 0; i < collectors.Count; i++)
         {
             var s = collectors[i];
 
-            if (s.IsUnderground == true)
+            if (s.hasSand == true)
             {
-                center += collectors[i].point.position;
+                bottomVerts2 += collectors[i].point.position;
                 var pos2 = transform.InverseTransformPoint(s.point.position) - sandMeshOffset;
                 verts.Add(pos2);
                 bottomVerts.Add(pos2);
@@ -223,7 +315,7 @@ public class Shovel : MonoBehaviour
                 for (i++; i < collectors.Count; ++i)
                 {
                     var s2 = collectors[i];
-                    if (s2.IsUnderground == true)
+                    if (s2.hasSand == true)
                     {
                         // tris.Add(tris.Count - 1);
                         var pos3 = transform.InverseTransformPoint(s2.point.position + s2.amount) - sandMeshOffset;
@@ -251,6 +343,7 @@ public class Shovel : MonoBehaviour
                 }
                 if (gotPair == false)
                 {
+                    if (verts.Count < 1) continue;
                     verts.RemoveAt(verts.Count - 1);
                     verts.RemoveAt(verts.Count - 1);
                     topVert.RemoveAt(topVert.Count - 1);
@@ -273,8 +366,8 @@ public class Shovel : MonoBehaviour
             }
         }
 
-        center = center / (float)collectors.Count;
-        sandMesh.transform.position = center;
+        bottomVerts2 = bottomVerts2 / (float)collectors.Count;
+        sandMesh.transform.position = bottomVerts2;
         sandMeshOffset = sandMesh.transform.localPosition;
 
         //top mesh
